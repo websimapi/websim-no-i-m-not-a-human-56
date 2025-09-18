@@ -101,7 +101,7 @@ function getNoiseBuffer(){
 
 export function startMumbledMonologue(volume=0.28){
   if (!audioUnlocked || !monologueBuffer || monologueHandle) return null;
-  const src = audioCtx.createBufferSource(); src.buffer = monologueBuffer; src.loop = true;
+  const src = audioCtx.createBufferSource(); src.buffer = monologueBuffer; src.loop = false;
   const lp = audioCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 900;
   const bp = audioCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 420; bp.Q.value = 0.7;
   const hp = audioCtx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 140;
@@ -109,7 +109,9 @@ export function startMumbledMonologue(volume=0.28){
   src.connect(lp).connect(bp).connect(hp).connect(g);
   const nsrc = audioCtx.createBufferSource(); nsrc.buffer = getNoiseBuffer(); nsrc.loop = true;
   const ng = audioCtx.createGain(); ng.gain.value = 0.025; nsrc.connect(ng).connect(g);
-  g.connect(audioCtx.destination); src.start(); nsrc.start(); monologueHandle = { src, nsrc, g }; return monologueHandle;
+  g.connect(audioCtx.destination); src.start(); nsrc.start();
+  src.addEventListener('ended', ()=>{ try{ nsrc.stop(); }catch{} monologueHandle=null; }, { once:true });
+  monologueHandle = { src, nsrc, g }; return monologueHandle;
 }
 
 export function stopMumbledMonologue(fadeOut=0.8){

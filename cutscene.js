@@ -10,7 +10,7 @@ const scenes = [
     fadeInClass: 'fade-in-long',
     onStart: (cs, canvas) => {
       if (posterizeInstance) posterizeInstance.setFogCoverage(0.45); // Set sky mask for cloud effect
-      startMumbledMonologue(0.26);
+      setTimeout(()=>startMumbledMonologue(0.26), 3000);
       animateBirds(() => {
         // This onComplete might trigger a transition if the scene hasn't already.
         if (currentSceneIndex === 0) {
