@@ -102,16 +102,20 @@ function getNoiseBuffer(){
 export function startMumbledMonologue(volume=0.28){
   if (!audioUnlocked || !monologueBuffer || monologueHandle) return null;
   const src = audioCtx.createBufferSource(); src.buffer = monologueBuffer; src.loop = false;
-  const lp = audioCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 900;
-  const bp = audioCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 420; bp.Q.value = 0.7;
-  const hp = audioCtx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 140;
+  const lp = audioCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 3200;
+  const bp = audioCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 650; bp.Q.value = 0.9;
+  const hp = audioCtx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value = 300;
+  const peq = audioCtx.createBiquadFilter(); peq.type='peaking'; peq.frequency.value=1200; peq.Q.value=2.5; peq.gain.value=-6;
+  const ws = audioCtx.createWaveShaper(); ws.curve = (()=>{ const n=256, c=new Float32Array(n); for(let i=0;i<n;i++){ const x=i/n*2-1; c[i]=Math.tanh(2.6*x); } return c; })(); ws.oversample='4x';
+  const tGain = audioCtx.createGain(); tGain.gain.value=1.0; const lfo = audioCtx.createOscillator(); lfo.frequency.value=7; const depth=audioCtx.createGain(); depth.gain.value=0.08; lfo.connect(depth).connect(tGain.gain); lfo.start();
   const g = audioCtx.createGain(); g.gain.setValueAtTime(0, audioCtx.currentTime); g.gain.linearRampToValueAtTime(volume, audioCtx.currentTime+1.2);
-  src.connect(lp).connect(bp).connect(hp).connect(g);
+  src.connect(hp).connect(lp).connect(bp).connect(peq).connect(ws).connect(tGain).connect(g);
   const nsrc = audioCtx.createBufferSource(); nsrc.buffer = getNoiseBuffer(); nsrc.loop = true;
-  const ng = audioCtx.createGain(); ng.gain.value = 0.025; nsrc.connect(ng).connect(g);
+  const hpN = audioCtx.createBiquadFilter(); hpN.type='highpass'; hpN.frequency.value=350; const lpN = audioCtx.createBiquadFilter(); lpN.type='lowpass'; lpN.frequency.value=3000;
+  const ng = audioCtx.createGain(); ng.gain.value = 0.038; nsrc.connect(hpN).connect(lpN).connect(ng).connect(g);
   g.connect(audioCtx.destination); src.start(); nsrc.start();
-  src.addEventListener('ended', ()=>{ try{ nsrc.stop(); }catch{} monologueHandle=null; }, { once:true });
-  monologueHandle = { src, nsrc, g }; return monologueHandle;
+  src.addEventListener('ended', ()=>{ try{ nsrc.stop(); lfo.stop(); }catch{} monologueHandle=null; }, { once:true });
+  monologueHandle = { src, nsrc, g, lfo }; return monologueHandle;
 }
 
 export function stopMumbledMonologue(fadeOut=0.8){
@@ -119,7 +123,7 @@ export function stopMumbledMonologue(fadeOut=0.8){
   try {
     h.g.gain.cancelScheduledValues(audioCtx.currentTime);
     h.g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + fadeOut);
-    setTimeout(()=>{ try{ h.src.stop(); h.nsrc.stop(); }catch{} }, fadeOut*1000);
+    setTimeout(()=>{ try{ h.src.stop(); h.nsrc.stop(); h.lfo.stop(); }catch{} }, fadeOut*1000);
   } catch {}
 }
 
